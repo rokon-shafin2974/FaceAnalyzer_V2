@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { align-items: flex-start; padding-top: 6rem; }
+        .admin-container { width: 100%; max-width: 900px; margin: 0 auto 2rem; }
+        .section { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; }
+        .section h3 { margin-bottom: 1rem; font-size: 1.1rem; }
+        
+        .btn-group { display: flex; gap: 1rem; margin-top: 1rem; }
+        .btn-mode { padding: 0.5rem 1rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; color: white; }
+        .btn-mode.ai { background: #3b82f6; }
+        .btn-mode.manual { background: #f59e0b; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { text-align: left; padding: 1rem; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-muted); font-size: 0.85rem; }
+        .btn-danger { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <a href="index.html" class="btn-nav" style="background: #3b82f6; border: none;">← Back to App</a>
+        <button class="btn-nav" style="background: #10b981; border: none;">⬇ Export Database to CSV</button>
+    </div>
+
+    <div class="glass-card admin-container">
+        <h2 style="text-align: left; margin-bottom: 2rem;">Admin Dashboard</h2>
+
+        <div class="section">
+            <h3>System Preferences</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Current Active Mode: <strong style="color: #f59e0b;">MANUAL</strong></p>
+            <div class="btn-group">
+                <button class="btn-mode ai">🤖 Switch to AI Automated</button>
+                <button class="btn-mode manual">✍️ Switch to Manual Rating</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>User Management</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Add new standard users or administrators to the system.</p>
+            <table id="usersTable">
+                <thead>
+                    <tr><th>ID</th><th>Username</th><th>Role</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>1</td><td>shafin</td><td style="color: #3b82f6;">Admin</td><td><button class="btn-danger">Remove</button></td></tr>
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

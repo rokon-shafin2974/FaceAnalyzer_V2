@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Face Analyzer - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .app-box { width: 100%; max-width: 500px; }
+        .badge { background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; display: inline-block; margin-bottom: 1.5rem; }
+        .upload-area { border: 2px dashed var(--primary); border-radius: 8px; padding: 2rem; text-align: center; background: rgba(139, 92, 246, 0.05); cursor: pointer; margin-bottom: 1.5rem; transition: 0.3s; }
+        .upload-area:hover { background: rgba(139, 92, 246, 0.1); }
+        .upload-area p { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <button class="btn-nav" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3);" onclick="logout()">— Logout</button>
+        <a href="admin.html" class="btn-nav">⚙ Admin Dashboard</a>
+    </div>
+
+    <div class="glass-card app-box" style="text-align: center;">
+        <h2>Face Analyzer</h2>
+        <div class="badge">🔥 Manual Rating Active</div>
+        
+        <form id="uploadForm" style="text-align: left;">
+            <label>Subject Name</label>
+            <input type="text" id="subjectName" placeholder="Enter the subject's full name" required>
+            
+            <label>Upload Photos</label>
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <h3>📸 Click to browse files</h3>
+                <p id="fileCountText">Select up to 10 images at once</p>
+                <input type="file" id="fileInput" multiple accept="image/*" style="display: none;" onchange="updateFileText()">
+            </div>
+            
+            <button type="submit" class="btn-primary" id="startBtn">Start Analysis</button>
+        </form>
+    </div>
+
+    <script>
+        function updateFileText() {
+            const files = document.getElementById('fileInput').files;
+            document.getElementById('fileCountText').innerText = files.length > 0 ? `${files.length} file(s) selected` : 'Select up to 10 images at once';
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const files = document.getElementById('fileInput').files;
+            if(files.length === 0) return alert("Please select at least one image.");
+
+            const formData = new FormData();
+            formData.append('subject_name', document.getElementById('subjectName').value);
+            for(let i=0; i<files.length; i++) { formData.append('images', files[i]); }
+
+            document.getElementById('startBtn').innerText = "Uploading & Analyzing...";
+
+            const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            if(data.success) {
+                alert(`Success! Saved ${data.images_saved} images to database.`);
+                window.location.reload();
+            } else {
+                alert("Error: " + (data.error || "Upload failed"));
+                document.getElementById('startBtn').innerText = "Start Analysis";
+            }
+        });
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>

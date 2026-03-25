@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Face Analyzer - Login</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .login-box { width: 100%; max-width: 400px; }
+        .role-toggle { display: flex; background: rgba(0,0,0,0.4); border-radius: 8px; margin-bottom: 2rem; overflow: hidden;}
+        .role-btn { flex: 1; padding: 0.75rem; text-align: center; cursor: pointer; color: var(--text-muted); transition: 0.3s;}
+        .role-btn.active { background: var(--primary); color: white; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="glass-card login-box">
+        <div class="role-toggle">
+            <div class="role-btn active" onclick="setRole('user')">User</div>
+            <div class="role-btn" onclick="setRole('admin')">Admin</div>
+        </div>
+        
+        <h2>User Login</h2>
+        <p class="subtitle" id="loginSubtitle">Sign in to access the Face Analyzer</p>
+        
+        <form id="loginForm">
+            <label>Username</label>
+            <input type="text" id="username" placeholder="Enter your username" required>
+            
+            <label>Password</label>
+            <input type="password" id="password" placeholder="••••••••" required>
+            
+            <button type="submit" class="btn-primary">Sign In</button>
+        </form>
+    </div>
+
+    <script>
+        let currentRole = 'user';
+
+        function setRole(role) {
+            currentRole = role;
+            document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.querySelector('h2').innerText = role === 'admin' ? 'Admin Login' : 'User Login';
+            document.getElementById('loginSubtitle').innerText = role === 'admin' ? 'Sign in to access system settings' : 'Sign in to access the Face Analyzer';
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.innerText = "Signing in...";
+            
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value,
+                    role_type: currentRole
+                })
+            });
+            
+            const data = await res.json();
+            if(data.success) {
+                window.location.href = data.redirect;
+            } else {
+                alert(data.message);
+                btn.innerText = "Sign In";
+            }
+        });
+    </script>
+</body>
+</html>
