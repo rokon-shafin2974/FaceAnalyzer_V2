@@ -1,141 +1,122 @@
 import os
-from flask import Flask, request, jsonify, send_from_directory, session, redirect
+import csv
+from io import StringIO
+from flask import Flask, request, jsonify, session, send_file
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from werkzeug.security import check_password_hash, generate_password_hash
-from werkzeug.utils import secure_filename
-from dotenv import load_dotenv
-
-load_dotenv()
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__, static_folder='public', static_url_path='')
-app.secret_key = os.getenv("SECRET_KEY", "fallback-secret-key")
+app.secret_key = os.getenv("SECRET_KEY", "super_secret_default_key")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-UPLOAD_FOLDER = os.path.join('public', 'uploads')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
 def get_db():
-    db_url = DATABASE_URL.replace("postgres://", "postgresql://")
-    return psycopg2.connect(db_url)
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    conn.autocommit = True
+    return conn
 
-# ==========================================
-# 1. PAGE ROUTES (Serving HTML)
-# ==========================================
-@app.route('/')
-def home():
-    if 'user_id' not in session:
-        return redirect('/login.html')
-    return send_from_directory(app.static_folder, 'index.html')
+# --- Initialize Database Tables ---
+def init_db():
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR UNIQUE, password VARCHAR, role VARCHAR);
+                CREATE TABLE IF NOT EXISTS ratings (id SERIAL PRIMARY KEY, subject_name VARCHAR, image_data TEXT, score INTEGER);
+                CREATE TABLE IF NOT EXISTS settings (key VARCHAR PRIMARY KEY, value TEXT);
+            """)
+init_db()
 
-@app.route('/<path:path>')
-def serve_static(path):
-    return send_from_directory(app.static_folder, path)
-
-# ==========================================
-# 2. AUTHENTICATION API
-# ==========================================
+# --- Auth Routes ---
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
-    username = data.get('username')
-    password = data.get('password')
-    role_type = data.get('role_type') # 'user' or 'admin' (From your UI toggle)
-
-    try:
-        conn = get_db()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM Users WHERE username = %s AND role = %s", (username, role_type.lower()))
-        user = cur.fetchone()
-        
-        if user and check_password_hash(user['password'], password):
-            session['user_id'] = user['id']
-            session['role'] = user['role']
-            session['username'] = user['username']
-            return jsonify({"success": True, "redirect": "/admin.html" if user['role'] == 'admin' else "/index.html"})
-        else:
-            return jsonify({"success": False, "message": "Invalid credentials or wrong role selected."}), 401
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-    finally:
-        if 'conn' in locals(): conn.close()
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM users WHERE username = %s AND role = %s", (data['username'], data['role_type']))
+            user = cur.fetchone()
+            if user and check_password_hash(user['password'], data['password']):
+                session['user_id'] = user['id']
+                session['role'] = user['role']
+                return jsonify({"success": True, "redirect": "admin.html" if user['role'] == 'admin' else "index.html"})
+    return jsonify({"success": False, "message": "Invalid credentials or wrong role."})
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
     session.clear()
     return jsonify({"success": True})
 
-# ==========================================
-# 3. ADMIN & SETTINGS API
-# ==========================================
-@app.route('/api/settings', methods=['GET', 'POST'])
-def settings():
-    if request.method == 'GET':
-        try:
-            conn = get_db()
-            cur = conn.cursor(cursor_factory=RealDictCursor)
-            cur.execute("SELECT key, value FROM Settings")
-            settings = {row['key']: row['value'] for row in cur.fetchall()}
-            return jsonify(settings)
-        finally:
-            if 'conn' in locals(): conn.close()
-            
-    if request.method == 'POST':
-        if session.get('role') != 'admin':
-            return jsonify({"error": "Unauthorized"}), 403
-            
-        data = request.json
-        try:
-            conn = get_db()
-            cur = conn.cursor()
-            for key, value in data.items():
-                cur.execute("UPDATE Settings SET value = %s WHERE key = %s", (value, key))
-            conn.commit()
-            return jsonify({"success": True})
-        finally:
-            if 'conn' in locals(): conn.close()
+# --- Admin: User Management ---
+@app.route('/api/admin/users', methods=['GET', 'POST', 'DELETE', 'PUT'])
+def manage_users():
+    if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 403
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            if request.method == 'GET':
+                cur.execute("SELECT id, username, role FROM users")
+                return jsonify(cur.fetchall())
+            elif request.method == 'POST':
+                data = request.json
+                hashed = generate_password_hash(data['password'])
+                try:
+                    cur.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)", (data['username'], hashed, data['role']))
+                    return jsonify({"success": True})
+                except:
+                    return jsonify({"success": False, "message": "Username exists"})
+            elif request.method == 'DELETE':
+                cur.execute("DELETE FROM users WHERE id = %s", (request.json['id'],))
+                return jsonify({"success": True})
+            elif request.method == 'PUT':
+                data = request.json
+                hashed = generate_password_hash(data['new_password'])
+                cur.execute("UPDATE users SET password = %s WHERE id = %s", (hashed, data['id']))
+                return jsonify({"success": True})
 
-# ==========================================
-# 4. APP LOGIC (Uploads & Subjects)
-# ==========================================
-@app.route('/api/analyze', methods=['POST'])
-def upload_photos():
-    if 'user_id' not in session: return jsonify({"error": "Unauthorized"}), 401
-    
-    subject_name = request.form.get('subject_name', 'Unknown')
-    files = request.files.getlist('images')
-    
-    if not files or files[0].filename == '':
-        return jsonify({"error": "No files uploaded"}), 400
+# --- Admin: Settings & Wallpapers ---
+@app.route('/api/settings/wallpaper', methods=['GET', 'POST'])
+def handle_wallpaper():
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            if request.method == 'POST':
+                if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 403
+                cur.execute("INSERT INTO settings (key, value) VALUES ('wallpaper', %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (request.json['url'],))
+                return jsonify({"success": True})
+            else:
+                cur.execute("SELECT value FROM settings WHERE key = 'wallpaper'")
+                row = cur.fetchone()
+                return jsonify({"url": row['value'] if row else "https://images.unsplash.com/photo-1555255707-c07966088b7b?q=80&w=2070&auto=format&fit=crop"})
 
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        
-        # 1. Create the Subject in the database
-        cur.execute("INSERT INTO Subjects (name) VALUES (%s) RETURNING id", (subject_name,))
-        subject_id = cur.fetchone()[0]
-        
-        # 2. Save all images
-        saved_paths = []
-        for file in files:
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-            db_path = f"/uploads/{filename}"
-            saved_paths.append(db_path)
+# --- Rating System ---
+@app.route('/api/ratings', methods=['POST', 'GET'])
+def handle_ratings():
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            if request.method == 'POST':
+                data = request.json
+                cur.execute("INSERT INTO ratings (subject_name, image_data, score) VALUES (%s, %s, %s)", (data['subject'], data['image'], data['score']))
+                return jsonify({"success": True})
+            elif request.method == 'GET':
+                cur.execute("SELECT id, subject_name, score FROM ratings ORDER BY id DESC")
+                return jsonify(cur.fetchall())
+
+# --- CSV Export ---
+@app.route('/api/export_csv')
+def export_csv():
+    if session.get('role') != 'admin': return "Unauthorized", 403
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, subject_name, score FROM ratings")
+            rows = cur.fetchall()
             
-            cur.execute("INSERT INTO Uploads (subject_id, file_path) VALUES (%s, %s)", (subject_id, db_path))
-            
-        conn.commit()
-        return jsonify({"success": True, "subject_id": subject_id, "images_saved": len(saved_paths)})
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        if 'conn' in locals(): conn.close()
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['ID', 'Subject Name', 'Score'])
+    for r in rows:
+        cw.writerow([r['id'], r['subject_name'], r['score']])
+    
+    return send_file(StringIO(si.getvalue()), mimetype='text/csv', as_attachment=True, download_name='ratings_export.csv')
+
+@app.route('/')
+def home(): return app.send_static_file('login.html')
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(port=int(os.getenv("PORT", 5000)))

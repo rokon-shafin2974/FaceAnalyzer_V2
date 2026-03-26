@@ -2,14 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Face Analyzer - Dashboard</title>
+    <title>Face Analyzer - Rating</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        .app-box { width: 100%; max-width: 500px; }
-        .badge { background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; display: inline-block; margin-bottom: 1.5rem; }
-        .upload-area { border: 2px dashed var(--primary); border-radius: 8px; padding: 2rem; text-align: center; background: rgba(139, 92, 246, 0.05); cursor: pointer; margin-bottom: 1.5rem; transition: 0.3s; }
+        .app-box { width: 100%; max-width: 500px; text-align: center; }
+        .upload-area { border: 2px dashed var(--primary); border-radius: 8px; padding: 2rem; cursor: pointer; margin-bottom: 1.5rem; transition: 0.3s; }
         .upload-area:hover { background: rgba(139, 92, 246, 0.1); }
-        .upload-area p { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; }
+        #ratingInterface { display: none; }
+        .preview-img { width: 100%; height: 250px; object-fit: cover; border-radius: 8px; margin-bottom: 1rem; }
+        .score-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 1rem; }
+        .score-btn { background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: white; padding: 10px; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .score-btn:hover, .score-btn.selected { background: var(--primary); }
+        .status-text { color: #f59e0b; font-size: 0.9rem; font-weight: bold; margin-top: 1rem; }
     </style>
 </head>
 <body>
@@ -18,53 +22,113 @@
         <a href="admin.html" class="btn-nav">⚙ Admin Dashboard</a>
     </div>
 
-    <div class="glass-card app-box" style="text-align: center;">
+    <div class="glass-card app-box" id="uploadSetup">
         <h2>Face Analyzer</h2>
-        <div class="badge">🔥 Manual Rating Active</div>
+        <div class="badge" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; display: inline-block; margin-bottom: 1.5rem;">🔥 Manual Rating Active</div>
         
         <form id="uploadForm" style="text-align: left;">
             <label>Subject Name</label>
             <input type="text" id="subjectName" placeholder="Enter the subject's full name" required>
-            
             <label>Upload Photos</label>
             <div class="upload-area" onclick="document.getElementById('fileInput').click()">
                 <h3>📸 Click to browse files</h3>
                 <p id="fileCountText">Select up to 10 images at once</p>
                 <input type="file" id="fileInput" multiple accept="image/*" style="display: none;" onchange="updateFileText()">
             </div>
-            
-            <button type="submit" class="btn-primary" id="startBtn">Start Analysis</button>
+            <button type="button" class="btn-primary" onclick="startRatingSession()">Start Rating Session</button>
         </form>
     </div>
 
+    <div class="glass-card app-box" id="ratingInterface">
+        <h2>Rate Subject: <span id="displaySubject"></span></h2>
+        <img id="currentImage" class="preview-img" src="" alt="Subject">
+        
+        <div class="score-grid" id="scoreButtons"></div>
+        <button class="btn-primary" onclick="submitRating()">Submit & Next</button>
+        
+        <div class="status-text" id="statusText">Image 1 of X</div>
+    </div>
+
     <script>
+        // Load Wallpaper
+        fetch('/api/settings/wallpaper').then(r=>r.json()).then(d => document.body.style.backgroundImage = `url('${d.url}')`);
+
+        let imageQueue = [];
+        let currentIndex = 0;
+        let selectedScore = null;
+
         function updateFileText() {
             const files = document.getElementById('fileInput').files;
             document.getElementById('fileCountText').innerText = files.length > 0 ? `${files.length} file(s) selected` : 'Select up to 10 images at once';
         }
 
-        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+        async function startRatingSession() {
             const files = document.getElementById('fileInput').files;
-            if(files.length === 0) return alert("Please select at least one image.");
-
-            const formData = new FormData();
-            formData.append('subject_name', document.getElementById('subjectName').value);
-            for(let i=0; i<files.length; i++) { formData.append('images', files[i]); }
-
-            document.getElementById('startBtn').innerText = "Uploading & Analyzing...";
-
-            const res = await fetch('/api/analyze', { method: 'POST', body: formData });
-            const data = await res.json();
+            const subject = document.getElementById('subjectName').value;
+            if(!subject || files.length === 0) return alert("Please enter a name and select images.");
             
-            if(data.success) {
-                alert(`Success! Saved ${data.images_saved} images to database.`);
-                window.location.reload();
-            } else {
-                alert("Error: " + (data.error || "Upload failed"));
-                document.getElementById('startBtn').innerText = "Start Analysis";
+            document.getElementById('uploadSetup').style.display = 'none';
+            document.getElementById('ratingInterface').style.display = 'block';
+            document.getElementById('displaySubject').innerText = subject;
+
+            // Convert all images to Base64 for the queue
+            imageQueue = [];
+            for(let file of files) {
+                const base64 = await new Promise(res => {
+                    const reader = new FileReader();
+                    reader.onload = () => res(reader.result);
+                    reader.readAsDataURL(file);
+                });
+                imageQueue.push(base64);
             }
-        });
+            
+            setupScoreGrid();
+            showImage(0);
+        }
+
+        function setupScoreGrid() {
+            const grid = document.getElementById('scoreButtons');
+            grid.innerHTML = '';
+            for(let i=1; i<=10; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'score-btn';
+                btn.innerText = i;
+                btn.onclick = () => {
+                    document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    selectedScore = i;
+                };
+                grid.appendChild(btn);
+            }
+        }
+
+        function showImage(index) {
+            if(index >= imageQueue.length) {
+                alert("Rating session complete!");
+                window.location.reload();
+                return;
+            }
+            currentIndex = index;
+            selectedScore = null;
+            document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+            document.getElementById('currentImage').src = imageQueue[index];
+            document.getElementById('statusText').innerText = `Current Status: Rating Image ${index + 1} of ${imageQueue.length}`;
+        }
+
+        async function submitRating() {
+            if(!selectedScore) return alert("Please select a score from 1 to 10.");
+            
+            await fetch('/api/ratings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    subject: document.getElementById('subjectName').value,
+                    image: imageQueue[currentIndex],
+                    score: selectedScore
+                })
+            });
+            showImage(currentIndex + 1);
+        }
 
         async function logout() {
             await fetch('/api/logout', { method: 'POST' });
