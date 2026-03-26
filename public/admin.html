@@ -7,36 +7,38 @@
     <style>
         body { align-items: flex-start; padding-top: 6rem; }
         .admin-container { width: 100%; max-width: 900px; margin: 0 auto 2rem; }
-        .section { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; }
-        .section h3 { margin-bottom: 1rem; font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        .section { background: rgba(0,0,0,0.4); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; border: 1px solid rgba(255,255,255,0.1); }
+        .section h3 { margin-bottom: 1rem; font-size: 1.2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; color: var(--primary); }
         
         table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-        th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.9rem;}
-        th { color: var(--text-muted); }
-        .btn-sm { padding: 0.4rem 0.8rem; border-radius: 4px; border: none; cursor: pointer; color: white; font-size: 0.8rem; }
+        th, td { text-align: left; padding: 1rem 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.95rem;}
+        th { color: var(--text-muted); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
+        
+        .btn-sm { padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; color: white; font-size: 0.85rem; font-weight: bold; transition: 0.2s;}
+        .btn-sm:hover { opacity: 0.8; }
         .btn-danger { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
         .btn-warning { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; }
         .btn-success { background: #10b981; }
         
-        .add-user-bar { display: flex; gap: 10px; margin-bottom: 1rem; }
-        .add-user-bar input, .add-user-bar select { padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.5); color: white; flex: 1; outline:none; }
+        .add-user-bar { display: flex; gap: 10px; margin-bottom: 1rem; align-items: center;}
+        .add-user-bar input, .add-user-bar select { padding: 0.6rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.5); color: white; flex: 1; outline:none; }
         
-        .wallpaper-thumbs { display: flex; gap: 10px; margin-bottom: 1rem; }
-        .thumb { width: 80px; height: 50px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; object-fit: cover; }
-        .thumb:hover { border-color: var(--primary); }
+        .wallpaper-thumbs { display: flex; gap: 15px; margin-bottom: 1rem; flex-wrap: wrap; }
+        .thumb { width: 120px; height: 70px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; object-fit: cover; transition: 0.2s; }
+        .thumb:hover { border-color: var(--primary); transform: scale(1.05); }
     </style>
 </head>
 <body>
     <div class="top-nav">
-        <a href="index.html" class="btn-nav" style="background: #3b82f6; border: none;">← Back to App</a>
-        <a href="/api/export_csv" class="btn-nav" style="background: #10b981; border: none; cursor: pointer;">⬇ Export Database to CSV</a>
+        <a href="index.html" class="btn-nav" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border);">← Back to App</a>
+        <a href="/api/export_csv" class="btn-nav" style="background: #10b981; border: none; cursor: pointer; color: white; font-weight: bold;">⬇ Export Database to CSV</a>
     </div>
 
     <div class="glass-card admin-container">
-        <h2 style="text-align: left; margin-bottom: 2rem;">Admin Dashboard</h2>
+        <h2 style="text-align: left; margin-bottom: 2rem;">Admin Control Center</h2>
 
         <div class="section">
-            <h3>User Management</h3>
+            <h3>👥 User Management</h3>
             <div class="add-user-bar">
                 <input type="text" id="newUsername" placeholder="New Username">
                 <input type="password" id="newPassword" placeholder="New Password">
@@ -53,23 +55,25 @@
         </div>
 
         <div class="section">
-            <h3>Wallpaper Settings</h3>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Click to apply pre-built, or upload custom.</p>
+            <h3>🎨 Global Wallpaper Settings</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">Click a preset to apply it to all users, or upload your own from your device.</p>
             <div class="wallpaper-thumbs">
                 <img src="https://images.unsplash.com/photo-1555255707-c07966088b7b?q=80&w=2070&auto=format&fit=crop" class="thumb" onclick="setWall(this.src)">
                 <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop" class="thumb" onclick="setWall(this.src)">
                 <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2064&auto=format&fit=crop" class="thumb" onclick="setWall(this.src)">
+                <img src="https://images.unsplash.com/photo-1506744626753-1fa44df31c7f?q=80&w=2070&auto=format&fit=crop" class="thumb" onclick="setWall(this.src)">
             </div>
-            <div class="add-user-bar" style="margin-top: 1rem;">
-                <input type="file" id="customWall" accept="image/*" style="padding-top: 5px;">
-                <button class="btn-sm btn-success" onclick="uploadWall()">Upload & Apply</button>
+            <div class="add-user-bar" style="margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
+                <input type="file" id="customWall" accept="image/*" style="padding-top: 8px;">
+                <button class="btn-sm btn-success" onclick="uploadWall()">Upload & Set as Wallpaper</button>
             </div>
         </div>
 
         <div class="section">
-            <h3>Subject Ratings Database</h3>
+            <h3>📊 Live Ratings Database</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">All ratings submitted by users appear here instantly.</p>
             <table>
-                <thead><tr><th>ID</th><th>Subject Name</th><th>Score</th></tr></thead>
+                <thead><tr><th>Record ID</th><th>Subject Name</th><th>Assigned Score</th></tr></thead>
                 <tbody id="ratingsTable"></tbody>
             </table>
         </div>
@@ -85,9 +89,11 @@
             const users = await uRes.json();
             document.getElementById('usersTable').innerHTML = users.map(u => `
                 <tr>
-                    <td>${u.id}</td><td>${u.username}</td><td><span style="color:${u.role==='admin'?'#3b82f6':'#10b981'}">${u.role}</span></td>
-                    <td>
-                        <button class="btn-sm btn-warning" onclick="changePass(${u.id})">Change Pass</button>
+                    <td>#${u.id}</td>
+                    <td style="font-weight: bold;">${u.username}</td>
+                    <td><span style="background:${u.role==='admin'?'rgba(59,130,246,0.2)':'rgba(16,185,129,0.2)'}; color:${u.role==='admin'?'#3b82f6':'#10b981'}; padding: 4px 8px; border-radius: 4px; text-transform: capitalize; font-size: 0.8rem;">${u.role}</span></td>
+                    <td style="display:flex; gap: 8px;">
+                        <button class="btn-sm btn-warning" onclick="changePass(${u.id})">Change Password</button>
                         <button class="btn-sm btn-danger" onclick="delUser(${u.id})">Delete</button>
                     </td>
                 </tr>
@@ -97,7 +103,11 @@
             const rRes = await fetch('/api/ratings');
             const ratings = await rRes.json();
             document.getElementById('ratingsTable').innerHTML = ratings.map(r => `
-                <tr><td>${r.id}</td><td>${r.subject_name}</td><td><span style="background:rgba(139,92,246,0.3); padding:2px 8px; border-radius:4px;">${r.score}</span></td></tr>
+                <tr>
+                    <td>#${r.id}</td>
+                    <td style="font-weight:bold;">${r.subject_name}</td>
+                    <td><span style="background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold;">${r.score} / 10</span></td>
+                </tr>
             `).join('');
         }
 
@@ -105,37 +115,47 @@
             const username = document.getElementById('newUsername').value;
             const password = document.getElementById('newPassword').value;
             const role = document.getElementById('newRole').value;
-            if(!username || !password) return alert("Fill all fields");
-            await fetch('/api/admin/users', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password, role})});
-            loadData();
+            if(!username || !password) return alert("Please fill in both username and password fields.");
+            
+            const res = await fetch('/api/admin/users', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password, role})});
+            const data = await res.json();
+            if(!data.success) alert(data.message);
+            else {
+                document.getElementById('newUsername').value = '';
+                document.getElementById('newPassword').value = '';
+                loadData();
+            }
         }
 
         async function delUser(id) {
-            if(confirm("Delete this user?")) {
+            if(confirm("Are you absolutely sure you want to delete this user?")) {
                 await fetch('/api/admin/users', { method: 'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id})});
                 loadData();
             }
         }
 
         async function changePass(id) {
-            const new_password = prompt("Enter new password for this user:");
+            const new_password = prompt("Enter a new password for this user:");
             if(new_password) {
                 await fetch('/api/admin/users', { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id, new_password})});
-                alert("Password updated!");
+                alert("Password successfully updated!");
             }
         }
 
         async function setWall(url) {
             await fetch('/api/settings/wallpaper', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url})});
             document.body.style.backgroundImage = `url('${url}')`;
+            alert("Global wallpaper updated!");
         }
 
         async function uploadWall() {
             const file = document.getElementById('customWall').files[0];
-            if(!file) return alert("Select a file");
+            if(!file) return alert("Please select an image file first.");
+            
+            // Convert to Base64 to save directly in the DB
             const reader = new FileReader();
             reader.onload = async () => {
-                await setWall(reader.result); // Save Base64 string directly to DB
+                await setWall(reader.result); 
             };
             reader.readAsDataURL(file);
         }
