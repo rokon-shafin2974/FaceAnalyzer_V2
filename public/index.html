@@ -5,15 +5,15 @@
     <title>Face Analyzer - Rating</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        .app-box { width: 100%; max-width: 500px; text-align: center; }
+        .app-box { width: 100%; max-width: 500px; text-align: center; margin: 2rem auto; }
         .upload-area { border: 2px dashed var(--primary); border-radius: 8px; padding: 2rem; cursor: pointer; margin-bottom: 1.5rem; transition: 0.3s; }
         .upload-area:hover { background: rgba(139, 92, 246, 0.1); }
         #ratingInterface { display: none; }
-        .preview-img { width: 100%; height: 250px; object-fit: cover; border-radius: 8px; margin-bottom: 1rem; }
+        .preview-img { width: 100%; max-height: 350px; object-fit: contain; border-radius: 8px; margin-bottom: 1rem; background: rgba(0,0,0,0.3); }
         .score-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 1rem; }
-        .score-btn { background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: white; padding: 10px; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .score-btn { background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: white; padding: 10px; border-radius: 8px; cursor: pointer; transition: 0.2s; font-weight: bold;}
         .score-btn:hover, .score-btn.selected { background: var(--primary); }
-        .status-text { color: #f59e0b; font-size: 0.9rem; font-weight: bold; margin-top: 1rem; }
+        .status-text { color: #10b981; font-size: 1rem; font-weight: bold; margin-top: 1.5rem; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px;}
     </style>
 </head>
 <body>
@@ -24,33 +24,33 @@
 
     <div class="glass-card app-box" id="uploadSetup">
         <h2>Face Analyzer</h2>
-        <div class="badge" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; display: inline-block; margin-bottom: 1.5rem;">🔥 Manual Rating Active</div>
+        <div class="badge" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; display: inline-block; margin-bottom: 1.5rem;">🔥 Sequential Rating Active</div>
         
         <form id="uploadForm" style="text-align: left;">
             <label>Subject Name</label>
-            <input type="text" id="subjectName" placeholder="Enter the subject's full name" required>
+            <input type="text" id="subjectName" placeholder="Enter the subject's full name" required style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid var(--border); background: rgba(0,0,0,0.5); color: white;">
             <label>Upload Photos</label>
             <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-                <h3>📸 Click to browse files</h3>
-                <p id="fileCountText">Select up to 10 images at once</p>
+                <h3 style="margin-bottom: 5px;">📸 Click to browse files</h3>
+                <p id="fileCountText" style="color: var(--text-muted); font-size: 0.9rem;">Select up to 10 images at once</p>
                 <input type="file" id="fileInput" multiple accept="image/*" style="display: none;" onchange="updateFileText()">
             </div>
-            <button type="button" class="btn-primary" onclick="startRatingSession()">Start Rating Session</button>
+            <button type="button" class="btn-primary" style="width: 100%;" onclick="startRatingSession()">Start Rating Session</button>
         </form>
     </div>
 
     <div class="glass-card app-box" id="ratingInterface">
-        <h2>Rate Subject: <span id="displaySubject"></span></h2>
+        <h2>Rate Subject: <span id="displaySubject" style="color: var(--primary);"></span></h2>
         <img id="currentImage" class="preview-img" src="" alt="Subject">
         
         <div class="score-grid" id="scoreButtons"></div>
-        <button class="btn-primary" onclick="submitRating()">Submit & Next</button>
+        <button class="btn-primary" style="width: 100%;" onclick="submitRating()">Submit Score & Next ➔</button>
         
-        <div class="status-text" id="statusText">Image 1 of X</div>
+        <div class="status-text" id="statusText">Loading...</div>
     </div>
 
     <script>
-        // Load Wallpaper
+        // Load Custom Wallpaper from DB
         fetch('/api/settings/wallpaper').then(r=>r.json()).then(d => document.body.style.backgroundImage = `url('${d.url}')`);
 
         let imageQueue = [];
@@ -59,19 +59,19 @@
 
         function updateFileText() {
             const files = document.getElementById('fileInput').files;
-            document.getElementById('fileCountText').innerText = files.length > 0 ? `${files.length} file(s) selected` : 'Select up to 10 images at once';
+            document.getElementById('fileCountText').innerText = files.length > 0 ? `${files.length} image(s) queued for rating` : 'Select up to 10 images at once';
         }
 
         async function startRatingSession() {
             const files = document.getElementById('fileInput').files;
             const subject = document.getElementById('subjectName').value;
-            if(!subject || files.length === 0) return alert("Please enter a name and select images.");
+            if(!subject || files.length === 0) return alert("Please enter a name and select at least one image.");
             
             document.getElementById('uploadSetup').style.display = 'none';
             document.getElementById('ratingInterface').style.display = 'block';
             document.getElementById('displaySubject').innerText = subject;
 
-            // Convert all images to Base64 for the queue
+            // Read files into Base64 strings
             imageQueue = [];
             for(let file of files) {
                 const base64 = await new Promise(res => {
@@ -104,7 +104,7 @@
 
         function showImage(index) {
             if(index >= imageQueue.length) {
-                alert("Rating session complete!");
+                alert(`✅ Success! All ${imageQueue.length} images for ${document.getElementById('subjectName').value} have been rated and saved to the database.`);
                 window.location.reload();
                 return;
             }
@@ -112,22 +112,23 @@
             selectedScore = null;
             document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
             document.getElementById('currentImage').src = imageQueue[index];
-            document.getElementById('statusText').innerText = `Current Status: Rating Image ${index + 1} of ${imageQueue.length}`;
+            document.getElementById('statusText').innerText = `📊 Current Status: Rating Image ${index + 1} of ${imageQueue.length}`;
         }
 
         async function submitRating() {
-            if(!selectedScore) return alert("Please select a score from 1 to 10.");
+            if(!selectedScore) return alert("Please select a score from 1 to 10 before continuing.");
             
+            // Save to database
             await fetch('/api/ratings', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     subject: document.getElementById('subjectName').value,
-                    image: imageQueue[currentIndex],
+                    image: imageQueue[currentIndex], // Saving base64 directly
                     score: selectedScore
                 })
             });
-            showImage(currentIndex + 1);
+            showImage(currentIndex + 1); // Move to next
         }
 
         async function logout() {
