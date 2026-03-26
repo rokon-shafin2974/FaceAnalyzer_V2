@@ -1,14 +1,18 @@
 import os
 import csv
 from io import StringIO
-from flask import Flask, request, jsonify, session, send_file
+from flask import Flask, request, jsonify, session, make_response
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__, static_folder='public', static_url_path='')
 app.secret_key = os.getenv("SECRET_KEY", "super_secret_default_key")
-DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Ensure the database URL format is correct for the driver
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 def get_db():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
@@ -17,13 +21,17 @@ def get_db():
 
 # --- Initialize Database Tables ---
 def init_db():
-    with get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR UNIQUE, password VARCHAR, role VARCHAR);
-                CREATE TABLE IF NOT EXISTS ratings (id SERIAL PRIMARY KEY, subject_name VARCHAR, image_data TEXT, score INTEGER);
-                CREATE TABLE IF NOT EXISTS settings (key VARCHAR PRIMARY KEY, value TEXT);
-            """)
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR UNIQUE, password VARCHAR, role VARCHAR);
+                    CREATE TABLE IF NOT EXISTS ratings (id SERIAL PRIMARY KEY, subject_name VARCHAR, image_data TEXT, score INTEGER);
+                    CREATE TABLE IF NOT EXISTS settings (key VARCHAR PRIMARY KEY, value TEXT);
+                """)
+    except Exception as e:
+        print("Database initialization skipped or failed (normal if building):", e)
+
 init_db()
 
 # --- Auth Routes ---
@@ -98,7 +106,7 @@ def handle_ratings():
                 cur.execute("SELECT id, subject_name, score FROM ratings ORDER BY id DESC")
                 return jsonify(cur.fetchall())
 
-# --- CSV Export ---
+# --- Bulletproof CSV Export ---
 @app.route('/api/export_csv')
 def export_csv():
     if session.get('role') != 'admin': return "Unauthorized", 403
@@ -113,10 +121,16 @@ def export_csv():
     for r in rows:
         cw.writerow([r['id'], r['subject_name'], r['score']])
     
-    return send_file(StringIO(si.getvalue()), mimetype='text/csv', as_attachment=True, download_name='ratings_export.csv')
+    output = make_response(si.getvalue())
+    output.headers["Content-Disposition"] = "attachment; filename=ratings_export.csv"
+    output.headers["Content-type"] = "text/csv"
+    return output
 
 @app.route('/')
-def home(): return app.send_static_file('login.html')
+def home(): 
+    if 'user_id' in session:
+        return app.send_static_file('index.html')
+    return app.send_static_file('login.html')
 
 if __name__ == '__main__':
     app.run(port=int(os.getenv("PORT", 5000)))
